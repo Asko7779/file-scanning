@@ -1,3 +1,6 @@
+
+// not really sure what to call this, probably a file scanner
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,17 +42,19 @@ void listProcesses() {
         }
     }
 }
+
+
 #else
 void listProcesses() {
     DIR *procDir = opendir("/proc");
     if (!procDir) return;
-    struct dirent *entry;
-    printf("[+] Running processes:\n");
+       struct dirent *entry;
+       printf("[+] Running processes:\n");
     while ((entry = readdir(procDir)) != NULL) {
         if (isdigit(entry->d_name[0])) {
-            char cmdPath[256];
-            snprintf(cmdPath, sizeof(cmdPath), "/proc/%s/cmdline", entry->d_name);
-            FILE *cmdFile = fopen(cmdPath, "r");
+             char cmdPath[256];
+             snprintf(cmdPath, sizeof(cmdPath), "/proc/%s/cmdline", entry->d_name);
+             FILE *cmdFile = fopen(cmdPath, "r");
             if (cmdFile) {
                 char cmd[256];
                 if (fgets(cmd, sizeof(cmd), cmdFile)) {
@@ -82,9 +87,12 @@ void computeMD5(const char *filename, unsigned char *result) {
     unsigned char data[1024];
     size_t bytes;
 
+    
     #ifdef _WIN32
     HCRYPTPROV hProv = 0;
     HCRYPTHASH hHash = 0;
+
+    
     CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
     CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash);
     while ((bytes = fread(data, 1, sizeof(data), file)) != 0)
@@ -93,6 +101,7 @@ void computeMD5(const char *filename, unsigned char *result) {
     CryptGetHashParam(hHash, HP_HASHVAL, result, &hashLen, 0);
     CryptDestroyHash(hHash);
     CryptReleaseContext(hProv, 0);
+    
     #else
     MD5_CTX mdContext;
     MD5_Init(&mdContext);
@@ -104,13 +113,14 @@ void computeMD5(const char *filename, unsigned char *result) {
     fclose(file);
 }
 
-void printHash(unsigned char *hash) {
+
+void printHash(unsigned char *hash){
     for (int i = 0; i < 16; i++) printf("%02x", hash[i]);
     printf("\n");
 }
 
-void scanFile(const char *filename) {
-    if (!fileExists(filename)) {
+void scanFile(const char *filename){
+    if (!fileExists(filename)){
         printf("[!] File not found: %s\n", filename);
         return;
     }
@@ -120,14 +130,16 @@ void scanFile(const char *filename) {
     printf("MD5 Hash: ");
     printHash(hash);
 
+    
+    
     const char *malwareHash = "e99a18c428cb38d5f260853678922e03";
     char computedHash[33];
     for (int i = 0; i < 16; i++) sprintf(&computedHash[i * 2], "%02x", hash[i]);
 
     if (strcmp(computedHash, malwareHash) == 0) {
-        printf("[!] Warning: File is flagged as malicious!\n");
+        printf("[!] Warning: File is flagged as malicious\n");
     } else {
-        printf("[+] File appears clean.\n");
+        printf("[+] File appears clean\n");
     }
 }
 
@@ -140,12 +152,14 @@ void quarantineFile(const char *filename) {
     char quarantinePath[256];
     snprintf(quarantinePath, sizeof(quarantinePath), "quarantine/%s", filename);
 
+    
     #ifdef _WIN32
     CreateDirectory("quarantine", NULL);
     if (!MoveFile(filename, quarantinePath)) {
         printf("[!] Failed to quarantine file: %s\n", filename);
         return;
     }
+    
     #else
     mkdir("quarantine", 0755);
     if (rename(filename, quarantinePath) != 0) {
@@ -156,6 +170,7 @@ void quarantineFile(const char *filename) {
 
     printf("[+] File moved to quarantine: %s\n", quarantinePath);
 }
+
 
 void deleteFile(const char *filename) {
     if (!fileExists(filename)) {
@@ -176,6 +191,7 @@ void getFileInfo(const char *filename) {
         return;
     }
 
+    
     #ifdef _WIN32
     WIN32_FILE_ATTRIBUTE_DATA fileInfo;
     if (GetFileAttributesEx(filename, GetFileExInfoStandard, &fileInfo)) {
@@ -195,6 +211,7 @@ void getFileInfo(const char *filename) {
     #endif
 }
 
+
 void scanDirectory(const char *directory) {
     #ifdef _WIN32
     WIN32_FIND_DATA findFileData;
@@ -205,7 +222,6 @@ void scanDirectory(const char *directory) {
         printf("[!] Directory not found: %s\n", directory);
         return;
     }
-
     do {
         if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
             char filePath[256];
@@ -237,6 +253,7 @@ int main() {
     char filename[256];
     char directory[256];
 
+    
     while (1) {
         printf("\n== File Scanning Utilities ==\n");
         printf("1. List running processes\n");
@@ -291,6 +308,5 @@ int main() {
                 printf("[!] Invalid choice. Please try again.\n");
         }
     }
-
     return 0;
 }
