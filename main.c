@@ -24,6 +24,7 @@ void listProcesses() {
     if (!EnumProcesses(processes, sizeof(processes), &count)) return;
     count /= sizeof(DWORD);
 
+
     printf("[+] Running processes:\n");
     for (unsigned int i = 0; i < count; i++) {
         if (processes[i]) {
