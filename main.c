@@ -13,7 +13,6 @@
 #include <wincrypt.h>
 #pragma comment(lib, "crypt32.lib")
 
-
 #else
 #include <dirent.h>
 #include <unistd.h>
