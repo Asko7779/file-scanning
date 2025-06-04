@@ -184,6 +184,9 @@ void quarantineFile(const char *filename) {
     printf("[+] File moved to quarantine: %s\n", quarantinePath);
 }
 
+/*
+    infected file deletion
+*/
 
 void deleteFile(const char *filename) {
     if (!fileExists(filename)) {
@@ -261,7 +264,7 @@ void scanDirectory(const char *directory) {
 #endif
 }
 
-// Displays the main menu and handles user input
+// displays the main menu and handles user input
 void showMenu() {
     printf("\n== File Scanning Utilities ==\n");
     printf("1. List running processes\n");
