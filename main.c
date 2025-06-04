@@ -1,4 +1,6 @@
-// not really sure what to call this, probably a file scanner
+// File Scanner Utility
+// Scans files/directories for known malicious hashes, supports quarantine, deletion, and file info
+// Cross-platform: Windows and Unix-like OS support
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +13,6 @@
 #include <conio.h>
 #include <wincrypt.h>
 #pragma comment(lib, "crypt32.lib")
-
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -19,12 +20,15 @@
 #include <openssl/md5.h>
 #endif
 
-#ifdef _WIN32
+#define MALWARE_HASH "e99a18c428cb38d5f260853678922e03" // Example malicious hash
+#define HASH_SIZE 16
+
+// Lists all running processes on the system
 void listProcesses() {
+#ifdef _WIN32
     DWORD processes[1024], count;
     if (!EnumProcesses(processes, sizeof(processes), &count)) return;
     count /= sizeof(DWORD);
-
 
     printf("[+] Running processes:\n");
     for (unsigned int i = 0; i < count; i++) {
@@ -42,31 +46,30 @@ void listProcesses() {
             }
         }
     }
-}
-
 #else
-void listProcesses() {
     DIR *procDir = opendir("/proc");
     if (!procDir) return;
-       struct dirent *entry;
-       printf("[+] Running processes:\n");
-    
-while ((entry = readdir(procDir)) != NULL) {
-    if (isdigit(entry->d_name[0])) {
-        char cmdPath[256];
-        snprintf(cmdPath, sizeof(cmdPath), "/proc/%s/cmdline", entry->d_name);
-        FILE *cmdFile = fopen(cmdPath, "r");
-    if (cmdFile) {
-        char cmd[256];
-        if (fgets(cmd, sizeof(cmd), cmdFile)) {
-            printf("PID %s: %s\n", entry->d_name, cmd);
+    struct dirent *entry;
+    printf("[+] Running processes:\n");
+    while ((entry = readdir(procDir)) != NULL) {
+        if (isdigit(entry->d_name[0])) {
+            char cmdPath[256];
+            snprintf(cmdPath, sizeof(cmdPath), "/proc/%s/cmdline", entry->d_name);
+            FILE *cmdFile = fopen(cmdPath, "r");
+            if (cmdFile) {
+                char cmd[256];
+                if (fgets(cmd, sizeof(cmd), cmdFile)) {
+                    printf("PID %s: %s\n", entry->d_name, cmd);
+                }
+                fclose(cmdFile);
+            }
         }
-fclose(cmdFile);
-}}}
-closedir(procDir);
-}
+    }
+    closedir(procDir);
 #endif
+}
 
+// Checks if a file exists
 int fileExists(const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (file) {
@@ -76,6 +79,7 @@ int fileExists(const char *filename) {
     return 0;
 }
 
+// Computes the MD5 hash of a file
 void computeMD5(const char *filename, unsigned char *result) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -86,7 +90,7 @@ void computeMD5(const char *filename, unsigned char *result) {
     unsigned char data[1024];
     size_t bytes;
 
-    #ifdef _WIN32
+#ifdef _WIN32
     HCRYPTPROV hProv = 0;
     HCRYPTHASH hHash = 0;
 
@@ -94,52 +98,55 @@ void computeMD5(const char *filename, unsigned char *result) {
     CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash);
     while ((bytes = fread(data, 1, sizeof(data), file)) != 0)
         CryptHashData(hHash, data, bytes, 0);
-    DWORD hashLen = 16;
+    DWORD hashLen = HASH_SIZE;
     CryptGetHashParam(hHash, HP_HASHVAL, result, &hashLen, 0);
     CryptDestroyHash(hHash);
     CryptReleaseContext(hProv, 0);
-    
-    #else
+#else
     MD5_CTX mdContext;
     MD5_Init(&mdContext);
     while ((bytes = fread(data, 1, sizeof(data), file)) != 0)
         MD5_Update(&mdContext, data, bytes);
     MD5_Final(result, &mdContext);
-    #endif
+#endif
 
     fclose(file);
 }
 
-
-void printHash(unsigned char *hash){
-    for (int i = 0; i < 16; i++) printf("%02x", hash[i]);
+// Prints a hash in hexadecimal format
+void printHash(const unsigned char *hash) {
+    for (int i = 0; i < HASH_SIZE; i++)
+        printf("%02x", hash[i]);
     printf("\n");
 }
 
-void scanFile(const char *filename){
-    if (!fileExists(filename)){
+// Scans a single file for a known malicious hash
+void scanFile(const char *filename) {
+    if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
         return;
     }
 
-    unsigned char hash[16];
+    unsigned char hash[HASH_SIZE];
+    char computedHash[HASH_SIZE * 2 + 1] = {0};
+
     computeMD5(filename, hash);
     printf("MD5 Hash: ");
     printHash(hash);
 
-    
-    
-    const char *malwareHash = "e99a18c428cb38d5f260853678922e03";
-    char computedHash[33];
-    for (int i = 0; i < 16; i++) sprintf(&computedHash[i * 2], "%02x", hash[i]);
+    // Convert hash to hex string
+    for (int i = 0; i < HASH_SIZE; i++)
+        sprintf(&computedHash[i * 2], "%02x", hash[i]);
 
-    if (strcmp(computedHash, malwareHash) == 0) {
+    // Compare against known malicious hash
+    if (strcmp(computedHash, MALWARE_HASH) == 0) {
         printf("[!] Warning: File is flagged as malicious\n");
     } else {
         printf("[+] File appears clean\n");
     }
 }
 
+// Moves a file to the quarantine directory
 void quarantineFile(const char *filename) {
     if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
@@ -149,26 +156,23 @@ void quarantineFile(const char *filename) {
     char quarantinePath[256];
     snprintf(quarantinePath, sizeof(quarantinePath), "quarantine/%s", filename);
 
-    
-    #ifdef _WIN32
+#ifdef _WIN32
     CreateDirectory("quarantine", NULL);
     if (!MoveFile(filename, quarantinePath)) {
         printf("[!] Failed to quarantine file: %s\n", filename);
         return;
     }
-    
-    #else
+#else
     mkdir("quarantine", 0755);
     if (rename(filename, quarantinePath) != 0) {
         printf("[!] Failed to quarantine file: %s\n", filename);
         return;
     }
-    #endif
-
+#endif
     printf("[+] File moved to quarantine: %s\n", quarantinePath);
 }
 
-
+// Deletes a file from the file system
 void deleteFile(const char *filename) {
     if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
@@ -182,14 +186,14 @@ void deleteFile(const char *filename) {
     }
 }
 
+// Displays info about a file (size, etc.)
 void getFileInfo(const char *filename) {
     if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
         return;
     }
 
-    
-    #ifdef _WIN32
+#ifdef _WIN32
     WIN32_FILE_ATTRIBUTE_DATA fileInfo;
     if (GetFileAttributesEx(filename, GetFileExInfoStandard, &fileInfo)) {
         printf("[+] File information for %s:\n", filename);
@@ -197,7 +201,7 @@ void getFileInfo(const char *filename) {
     } else {
         printf("[!] Unable to retrieve file information.\n");
     }
-    #else
+#else
     struct stat fileStat;
     if (stat(filename, &fileStat) == 0) {
         printf("[+] File information for %s:\n", filename);
@@ -205,12 +209,12 @@ void getFileInfo(const char *filename) {
     } else {
         printf("[!] Unable to retrieve file information.\n");
     }
-    #endif
+#endif
 }
 
-
+// Scans all regular files in a directory for malware
 void scanDirectory(const char *directory) {
-    #ifdef _WIN32
+#ifdef _WIN32
     WIN32_FIND_DATA findFileData;
     char searchPath[256];
     snprintf(searchPath, sizeof(searchPath), "%s\\*", directory);
@@ -227,7 +231,7 @@ void scanDirectory(const char *directory) {
         }
     } while (FindNextFile(hFind, &findFileData) != 0);
     FindClose(hFind);
-    #else
+#else
     DIR *dir = opendir(directory);
     if (!dir) {
         printf("[!] Directory not found: %s\n", directory);
@@ -242,27 +246,31 @@ void scanDirectory(const char *directory) {
         }
     }
     closedir(dir);
-    #endif
+#endif
 }
 
-int main() {
+// Displays the main menu and handles user input
+void showMenu() {
+    printf("\n== File Scanning Utilities ==\n");
+    printf("1. List running processes\n");
+    printf("2. Scan a file for malware\n");
+    printf("3. Scan a directory for malware\n");
+    printf("4. Quarantine a file\n");
+    printf("5. Delete a file\n");
+    printf("6. Get file information\n");
+    printf("7. Exit\n");
+    printf("Enter your choice: ");
+}
+
+int main(void) {
     char choice;
     char filename[256];
     char directory[256];
 
-    
     while (1) {
-        printf("\n== File Scanning Utilities ==\n");
-        printf("1. List running processes\n");
-        printf("2. Scan a file for malware\n");
-        printf("3. Scan a directory for malware\n");
-        printf("4. Quarantine a file\n");
-        printf("5. Delete a file\n");
-        printf("6. Get file information\n");
-        printf("7. Exit\n");
-        printf("Enter your choice: ");
+        showMenu();
         choice = getchar();
-        getchar();
+        getchar(); // consume newline
 
         switch (choice) {
             case '1':
