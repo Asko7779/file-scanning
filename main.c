@@ -44,28 +44,26 @@ void listProcesses() {
     }
 }
 
-
 #else
 void listProcesses() {
     DIR *procDir = opendir("/proc");
     if (!procDir) return;
        struct dirent *entry;
        printf("[+] Running processes:\n");
-    while ((entry = readdir(procDir)) != NULL) {
-        if (isdigit(entry->d_name[0])) {
-             char cmdPath[256];
-             snprintf(cmdPath, sizeof(cmdPath), "/proc/%s/cmdline", entry->d_name);
-             FILE *cmdFile = fopen(cmdPath, "r");
-            if (cmdFile) {
-                char cmd[256];
-                if (fgets(cmd, sizeof(cmd), cmdFile)) {
-                    printf("PID %s: %s\n", entry->d_name, cmd);
-                }
-                fclose(cmdFile);
-            }
+    
+while ((entry = readdir(procDir)) != NULL) {
+    if (isdigit(entry->d_name[0])) {
+        char cmdPath[256];
+        snprintf(cmdPath, sizeof(cmdPath), "/proc/%s/cmdline", entry->d_name);
+        FILE *cmdFile = fopen(cmdPath, "r");
+    if (cmdFile) {
+        char cmd[256];
+        if (fgets(cmd, sizeof(cmd), cmdFile)) {
+            printf("PID %s: %s\n", entry->d_name, cmd);
         }
-    }
-    closedir(procDir);
+fclose(cmdFile);
+}}}
+closedir(procDir);
 }
 #endif
 
@@ -88,12 +86,10 @@ void computeMD5(const char *filename, unsigned char *result) {
     unsigned char data[1024];
     size_t bytes;
 
-    
     #ifdef _WIN32
     HCRYPTPROV hProv = 0;
     HCRYPTHASH hHash = 0;
 
-    
     CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
     CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash);
     while ((bytes = fread(data, 1, sizeof(data), file)) != 0)
@@ -310,4 +306,4 @@ int main() {
         }
     }
     return 0;
-}
+}
