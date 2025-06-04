@@ -23,7 +23,10 @@
 #define MALWARE_HASH "e99a18c428cb38d5f260853678922e03" // Example malicious hash
 #define HASH_SIZE 16
 
-// Lists all running processes on the system
+/*
+    Lists all running processes
+*/
+
 void listProcesses() {
 #ifdef _WIN32
     DWORD processes[1024], count;
@@ -69,7 +72,11 @@ void listProcesses() {
 #endif
 }
 
-// Checks if a file exists
+
+/*
+    Verifies that the file exists
+*/
+
 int fileExists(const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (file) {
@@ -79,7 +86,6 @@ int fileExists(const char *filename) {
     return 0;
 }
 
-// Computes the MD5 hash of a file
 void computeMD5(const char *filename, unsigned char *result) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -113,14 +119,18 @@ void computeMD5(const char *filename, unsigned char *result) {
     fclose(file);
 }
 
-// Prints a hash in hexadecimal format
+/*
+    output hash in hexademical format
+*/
 void printHash(const unsigned char *hash) {
     for (int i = 0; i < HASH_SIZE; i++)
         printf("%02x", hash[i]);
     printf("\n");
 }
 
-// Scans a single file for a known malicious hash
+/*
+    scans for a known malicious hash
+*/
 void scanFile(const char *filename) {
     if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
@@ -138,7 +148,9 @@ void scanFile(const char *filename) {
     for (int i = 0; i < HASH_SIZE; i++)
         sprintf(&computedHash[i * 2], "%02x", hash[i]);
 
-    // Compare against known malicious hash
+    /*
+        compares to known hashes
+    */
     if (strcmp(computedHash, MALWARE_HASH) == 0) {
         printf("[!] Warning: File is flagged as malicious\n");
     } else {
@@ -146,7 +158,7 @@ void scanFile(const char *filename) {
     }
 }
 
-// Moves a file to the quarantine directory
+// moves the file to the quarantine directory
 void quarantineFile(const char *filename) {
     if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
@@ -172,7 +184,7 @@ void quarantineFile(const char *filename) {
     printf("[+] File moved to quarantine: %s\n", quarantinePath);
 }
 
-// Deletes a file from the file system
+
 void deleteFile(const char *filename) {
     if (!fileExists(filename)) {
         printf("[!] File not found: %s\n", filename);
